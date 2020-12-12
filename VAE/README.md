@@ -38,3 +38,8 @@ example:
 python main.py --no-cuda --epochs 60 --batch-size 100
 ```
 
+## References
+
+1. https://github.com/pytorch/examples/tree/master/vae
+2. https://github.com/hwalsuklee/tensorflow-mnist-VAE
+
