@@ -7,7 +7,7 @@ from torchvision import datasets, transforms
 import matplotlib
 import matplotlib.pyplot as plt
 
-from vae import VAE, loss_function
+from vae import VAE
 
 
 global_conf = {}
@@ -63,7 +63,7 @@ def prepare_data(args, dir_path, shuffle=True, download=True):
     return train_loader, test_loader
 
 
-def train(model, train_loader, epoch, optimizer, args, device):
+def train(model, train_loader, epoch, optimizer, args, device, img_size):
     """VAE training process"""
     model.train()
     train_loss = 0
@@ -71,8 +71,8 @@ def train(model, train_loader, epoch, optimizer, args, device):
     for batch_idx, (data, _) in enumerate(train_loader):
         data = data.to(device)
         optimizer.zero_grad()
-        recon_batch, mu, logvar = model(data)
-        loss = loss_function(recon_batch, data, mu, logvar)
+        recon_batch, mu, logvar = model(data.view(-1, img_size[0]*img_size[1]))
+        loss = model.loss_function(recon_batch, data, mu, logvar)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -99,10 +99,11 @@ def test(model, test_loader, epoch, args, device, img_size, res_dir):
     with torch.no_grad():
         for i, (data, _) in enumerate(test_loader):
             data = data.to(device)
-            recon_batch, mu, logvar = model(data)
-            test_loss += loss_function(recon_batch, data, mu, logvar).item()
+            recon_batch, mu, logvar = model(data.view(-1, img_size[0]*img_size[1]))
+            test_loss += model.loss_function(recon_batch, data, mu, logvar).item()
 
             if i == 0:
+                recon_batch = model.reconstruct(data.view(-1, img_size[0]*img_size[1]))
                 n = min(data.size(0), 8)
                 comparison = torch.cat([data[:n], recon_batch.view(args.batch_size, 1, img_size[0], img_size[1])[:n]])
                 save_image(comparison.cpu(), res_dir+'/reconstruction_'+str(epoch)+'.png', nrow=n)
@@ -123,18 +124,17 @@ def main(args):
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
     
     # prepare model
-    model = VAE(img_size[0]*img_size[1], args.n_hidden, args.n_hidden, args.dim_z, img_size[0]*img_size[1])
+    model = VAE(img_size[0]*img_size[1], args.n_hidden, args.dim_z, img_size[0]*img_size[1])
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     # train and test
     losses = []
     for epoch in range(1, args.epochs+1):
-        avg_loss = train(model, train_loader, epoch, optimizer, args, device)
+        avg_loss = train(model, train_loader, epoch, optimizer, args, device, img_size)
         losses.append(avg_loss)
         test(model, test_loader, epoch, args, device, img_size, res_dir)
         with torch.no_grad():
-            sample = torch.randn(64, args.dim_z).to(device)
-            sample = model.decoder(sample).cpu()
+            sample = model.sample(64, device).cpu()
             save_image(sample.view(64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
 
     # plot train losses
