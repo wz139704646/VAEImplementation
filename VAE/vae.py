@@ -1,18 +1,17 @@
 # Implementation of Variational Auto-Encoder (paper at https://arxiv.org/abs/1312.6114) based on pytorch
 
-import sys
-sys.path.append("..")
-
 import torch
-import numpy as np
 from torch import nn
 from torch.nn import functional as F
+from torch.distributions.normal import Normal
 
+import sys
+sys.path.append("..")
 from base import BaseVAE
 
 
 class VAE(BaseVAE):
-    """Class that implements of Variational Auto-Encoder"""
+    """Class that implements Variational Auto-Encoder"""
 
     def __init__(self, n_input, n_hidden, dim_z, n_output, binary=True, **kwargs):
         """initialize neural networks
@@ -76,39 +75,41 @@ class VAE(BaseVAE):
 
     def forward(self, input):
         """autoencoder forward computation"""
-        mu, logvar = self.encode(input)
+        encoded = self.encode(input)
+        mu, logvar = encoded
         z = self.reparameterize(mu, logvar) # latent variable z
 
-        return self.decode(z), mu, logvar
+        return self.decode(z), encoded
 
     def reconstruct(self, input, **kwargs):
         """reconstruct from the input"""
-        recon = self.forward(input)[0]
+        decoded = self.forward(input)[0]
         
         if not self.binary:
-            # use Guassian, can not directly return recon
-            mu_o, logvar_o = recon
-            recon = self.reparameterize(mu_o, logvar_o)
+            # use Guassian, smaple from decoded Gaussian distribution(use reparameterization trick)
+            mu_o, logvar_o = decoded
+            decoded = self.reparameterize(mu_o, logvar_o)
 
         # use Bernoulli, can directly return as the reconstructed result
-        return recon
+        return decoded
 
     def loss_function(self, *inputs, **kwargs):
         """loss function described in the paper (eq. (10))"""
-        recon_x = inputs[0]
+        decoded = inputs[0]
         x = inputs[1]
-        mu = inputs[2]
-        logvar = inputs[3]
+        encoded = inputs[2]
 
+        mu, logvar = encoded
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) # KL divergence term
         if self.binary:
             # loss under Bernolli MLP decoder
-            BCE = F.binary_cross_entropy(recon_x, x, reduction='sum') # likelyhood term
+            BCE = F.binary_cross_entropy(decoded, x, reduction='sum') # likelyhood term
             return BCE + KLD
 
         # otherwise, return loss under Gaussian MLP decoder
-        mu_o, logvar_o = recon_x
-        MLD = torch.norm((((2*np.pi*logvar_o.exp()).sqrt())*(((x-mu_o).pow(2))/(2*logvar_o.exp()))),dim=1)
+        mu_o, logvar_o = decoded
+        recon_x_distribution = Normal(loc=mu_o, scale=torch.exp(0.5*logvar_o))
+        MLD = -torch.sum(recon_x_distribution.log_prob(x))
         return MLD + KLD
 
 

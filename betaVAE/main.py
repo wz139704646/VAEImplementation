@@ -5,7 +5,7 @@ from torchvision.utils import save_image
 import matplotlib
 import matplotlib.pyplot as plt
 
-from vae import VAE
+from beta_vae import BetaVAE
 
 import sys
 sys.path.append("..")
@@ -17,7 +17,7 @@ global_conf = {}
 
 def parse_args():
     """parse command line arguments"""
-    desc = "Implementation of VAE based on pytorch, using MNIST dataset"
+    desc = "Implementation of beta-VAE based on pytorch, using MNIST dataset"
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -32,10 +32,12 @@ def parse_args():
                         help='interval between logging training status (default 10)')
     parser.add_argument('--n-hidden', type=int, default=400, metavar='N',
                         help='number of hidden units in MLP (default 400)')
-    parser.add_argument('--dim-z', type=int, default=20, metavar='N',
-                        help='dimension of latent space (default 20)')
+    parser.add_argument('--dim-z', type=int, default=10, metavar='N',
+                        help='dimension of latent space (default 10)')
     parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                         help='learning rate of optimizer (default 1e-3)')
+    parser.add_argument('--beta', type=float, default=3., metavar=':math: `\\beta`',
+                        help='beta coefficient of beta-VAE (default 3.)')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -46,6 +48,7 @@ def parse_args():
 def configuration(args):
     """set global configuration for initialization"""
     torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
     
     global_conf['device'] = torch.device("cuda" if args.cuda else "cpu")
     global_conf['image_size'] = (28, 28)
@@ -54,7 +57,7 @@ def configuration(args):
 
 
 def prepare_data(args, dir_path, shuffle=True):
-    """prepare data for training and testing"""
+    """prepare data for training/testing"""
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     train_loader = prepare_data_mnist(args.batch_size, dir_path, train=True, shuffle=shuffle, **kwargs)
     test_loader = prepare_data_mnist(args.batch_size, dir_path, train=False, shuffle=shuffle, **kwargs)
@@ -63,7 +66,7 @@ def prepare_data(args, dir_path, shuffle=True):
 
 
 def train(model, train_loader, epoch, optimizer, args, device, img_size):
-    """VAE training process"""
+    """beta-VAE training process"""
     model.train()
     train_loss = 0
 
@@ -92,7 +95,7 @@ def train(model, train_loader, epoch, optimizer, args, device, img_size):
 
 
 def test(model, test_loader, epoch, args, device, img_size, res_dir):
-    """VAE testing process"""
+    """beta-VAE testing process"""
     model.eval()
     test_loss = 0
     with torch.no_grad():
@@ -123,7 +126,7 @@ def main(args):
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
     
     # prepare model
-    model = VAE(img_size[0]*img_size[1], args.n_hidden, args.dim_z, img_size[0]*img_size[1])
+    model = BetaVAE(img_size[0]*img_size[1], args.n_hidden, args.dim_z, img_size[0]*img_size[1], args.beta)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     # train and test
