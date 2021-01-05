@@ -74,16 +74,17 @@ class FactorVAE(VAE):
             mu, logvar = encoded
 
             # KL divergence term
-            KLD = torch.mean(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
+            KLD = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp()).sum(1).mean()
             if self.binary:
                 # likelihood term under Bernolli MLP decoder
-                MLD = F.binary_cross_entropy(decoded, x) # likelyhood term
+                MLD = F.binary_cross_entropy(decoded, x, reduction='sum').div(x.size(0))
             else:
                 # likelihood term under Gaussian MLP decoder
                 mu_o, logvar_o = decoded
                 recon_x_distribution = Normal(
                     loc=mu_o, scale=torch.exp(0.5*logvar_o))
-                MLD = torch.mean(-torch.sum(recon_x_distribution.log_prob(x), dim=1))
+                MLD = recon_x_distribution.log_prob(x).sum(1).mean()
+
             Dz = self.discriminator(z)
             tc_loss = (Dz[:, :1] - Dz[:, 1:]).mean()
             

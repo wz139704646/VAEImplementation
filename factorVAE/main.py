@@ -158,16 +158,50 @@ def test(model, test_loaders, epoch, args, device, img_size, res_dir):
     return {"vae": test_loss_vae, "discriminator": test_loss_discriminator}
 
 
-def plot_epoch_loss(losses, save_path=None):
+def plot_epoch_loss(losses, save_path=None, layout='v'):
     """plot the loss change over epoches
     :param losses: a dict mapping loss name to list of loss values
     :param save_dir: if not None, save the fig at the path
-    """
+    :param layout: currently 'v' and 'h' supported, specify how the subplot placed
+    """    
+    cates = list(losses.keys())
+    num = len(cates)
+    assert num <= 9
+
+    # default vertical layout
+    nrow = 1
+    ncol = 1
+    if num >= 3:
+        nrow = 3
+        ncol = num // 3
+    else:
+        nrow = num
+        ncol = 1
+
+    if layout == 'v':
+        # vertical layout
+        pass
+    elif layout == 'h':
+        # horizontal layout
+        nrow, ncol = ncol, nrow
+    else:
+        raise NotImplementedError
+
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    
-    for key in losses.keys():
-        plt.plot(losses[key], label=key)
+    fig = plt.figure(figsize=(12, 12))
+    for i in range(num):
+        idx = i + 1
+        if layout == 'v':
+            col = i // nrow # the subplot col no.
+            row = i % nrow # the subplot row no.
+            idx = row * ncol + col + 1
+        elif layout == 'h':
+            pass
+
+        ax = fig.add_subplot(nrow, ncol, idx)
+        ax.set_title(cates[i])
+        ax.plot(losses[cates[i]])
     
     if save_path is not None:
         plt.savefig(save_path)
