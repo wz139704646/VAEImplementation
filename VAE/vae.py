@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from torch.distributions.normal import Normal
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
 from base import BaseVAE
 

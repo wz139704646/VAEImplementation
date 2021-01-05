@@ -1,4 +1,3 @@
-from load_data import prepare_data_mnist
 import torch
 import argparse
 from torch import optim
@@ -10,6 +9,7 @@ from vae import VAE
 
 import sys
 sys.path.append("..")
+from load_data import prepare_data_mnist
 
 
 global_conf = {}

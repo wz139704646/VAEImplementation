@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from torch.distributions.normal import Normal
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
 from betaVAE import BetaVAE
 
@@ -16,9 +17,9 @@ class BetaTCVAE(BetaVAE):
     def __init__(self, n_input, n_hidden, dim_z, n_output,
                  alpha, beta, gamma, binary=True, sampling="mws", **kwargs):
         """initialize neural networks
-        :param alpha: coefficient for Index-Code MI term in loss function
-        :param beta: coefficient for Total Correlation term in loss function
-        :param gamma: coefficient for Dimension-wise KL term in loss function
+        :param alpha: weight for Index-Code MI term in loss function
+        :param beta: weight for Total Correlation term in loss function
+        :param gamma: weight for Dimension-wise KL term in loss function
         """
         super(BetaTCVAE, self).__init__(n_input, n_hidden,
                                         dim_z, n_output, beta, binary, **kwargs)
@@ -35,6 +36,7 @@ class BetaTCVAE(BetaVAE):
         return self.decode(z), encoded, z
 
     def get_log_importance_weight_mat(self, batch_size, dataset_size):
+        """calculate the importance weight matrix"""
         # N denotes dataset_size, M denotes batch_size-1
         strat_weight = (dataset_size - batch_size + 1) / \
             (dataset_size * (batch_size - 1))  # (N-M)/(NM)
@@ -50,7 +52,7 @@ class BetaTCVAE(BetaVAE):
         return importance_weights.log()
 
     def loss_function(self, *inputs, **kwargs):
-        """loss function described in the paper (eq. (10))"""
+        """loss function described in the paper (eq. (4))"""
         decoded = inputs[0]
         x = inputs[1]
         encoded = inputs[2]

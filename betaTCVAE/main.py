@@ -55,7 +55,7 @@ def configuration(args):
     """set global configuration for initialization"""
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
-    
+
     global_conf['device'] = torch.device("cuda" if args.cuda else "cpu")
     global_conf['image_size'] = (28, 28)
     global_conf['data_dir'] = '../data'
@@ -65,8 +65,10 @@ def configuration(args):
 def prepare_data(args, dir_path, shuffle=True):
     """prepare data for training/testing"""
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-    train_loader = prepare_data_mnist(args.batch_size, dir_path, train=True, shuffle=shuffle, **kwargs)
-    test_loader = prepare_data_mnist(args.batch_size, dir_path, train=False, shuffle=shuffle, **kwargs)
+    train_loader = prepare_data_mnist(
+        args.batch_size, dir_path, train=True, shuffle=shuffle, **kwargs)
+    test_loader = prepare_data_mnist(
+        args.batch_size, dir_path, train=False, shuffle=shuffle, **kwargs)
 
     return train_loader, test_loader
 
@@ -81,18 +83,19 @@ def train(model, train_loader, epoch, optimizer, args, device, img_size):
         data = data.to(device)
         optimizer.zero_grad()
         decoded, encoded, z = model(data.view(-1, img_size[0]*img_size[1]))
-        loss = model.loss_function(decoded, data, encoded, z, dataset_size=dataset_size)
+        loss = model.loss_function(
+            decoded, data.view(-1, img_size[0]*img_size[1]), encoded, z, dataset_size=dataset_size)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
-        
+
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tloss: {:.6f}'.format(
                 epoch, batch_idx * len(data), dataset_size,
                 100. * batch_idx / len(train_loader),
                 loss.item() / len(data)
             ))
-        
+
     avg_loss = train_loss / len(train_loader.dataset)
     print('=====> Epoch: {} Average loss: {:.4f}'.format(
         epoch, avg_loss
@@ -111,14 +114,18 @@ def test(model, test_loader, epoch, args, device, img_size, res_dir):
         for i, (data, _) in enumerate(test_loader):
             data = data.to(device)
             decoded, encoded, z = model(data.view(-1, img_size[0]*img_size[1]))
-            test_loss += model.loss_function(decoded, data, encoded, z, dataset_size=dataset_size).item()
+            test_loss += model.loss_function(
+                decoded, data.view(-1, img_size[0]*img_size[1]), encoded, z, dataset_size=dataset_size).item()
 
             if i == 0:
-                recon_batch = model.reconstruct(data.view(-1, img_size[0]*img_size[1]))
+                recon_batch = model.reconstruct(
+                    data.view(-1, img_size[0]*img_size[1]))
                 n = min(data.size(0), 8)
-                comparison = torch.cat([data[:n], recon_batch.view(args.batch_size, 1, img_size[0], img_size[1])[:n]])
-                save_image(comparison.cpu(), res_dir+'/reconstruction_'+str(epoch)+'.png', nrow=n)
-            
+                comparison = torch.cat([data[:n], recon_batch.view(
+                    args.batch_size, 1, img_size[0], img_size[1])[:n]])
+                save_image(comparison.cpu(), res_dir +
+                           '/reconstruction_'+str(epoch)+'.png', nrow=n)
+
     test_loss /= len(test_loader.dataset)
     print('=====> Test set loss: {:.4f}'.format(test_loss))
 
@@ -133,21 +140,23 @@ def main(args):
 
     # prepare data
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
-    
+
     # prepare model
     model = BetaTCVAE(img_size[0]*img_size[1], args.n_hidden, args.dim_z, img_size[0]*img_size[1],
-                    args.alpha, args.beta, args.gamma, sampling=args.sampling)
+                      args.alpha, args.beta, args.gamma, sampling=args.sampling)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     # train and test
     losses = []
     for epoch in range(1, args.epochs+1):
-        avg_loss = train(model, train_loader, epoch, optimizer, args, device, img_size)
+        avg_loss = train(model, train_loader, epoch,
+                         optimizer, args, device, img_size)
         losses.append(avg_loss)
         test(model, test_loader, epoch, args, device, img_size, res_dir)
         with torch.no_grad():
             sample = model.sample(64, device).cpu()
-            save_image(sample.view(64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
+            save_image(sample.view(
+                64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
 
     # plot train losses
     plt.xlabel('Epoch')

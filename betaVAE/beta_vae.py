@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from torch.distributions.normal import Normal
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
 from VAE import VAE
 
@@ -20,7 +21,7 @@ class BetaVAE(VAE):
         self.beta = beta # additional coef compared to original VAE
 
     def loss_function(self, *inputs, **kwargs):
-        """loss function described in the paper (eq. (10))"""
+        """loss function described in the paper (eq. (4))"""
         decoded = inputs[0]
         x = inputs[1]
         encoded = inputs[2]
