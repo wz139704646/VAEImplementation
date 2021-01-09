@@ -93,10 +93,10 @@ def train(model, train_loader, epoch, optimizer, args, device, img_size):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tloss: {:.6f}'.format(
                 epoch, batch_idx * len(data), dataset_size,
                 100. * batch_idx / len(train_loader),
-                loss.item() / len(data)
+                loss.item()
             ))
 
-    avg_loss = train_loss / len(train_loader.dataset)
+    avg_loss = train_loss / len(train_loader.dataset) * args.batch_size
     print('=====> Epoch: {} Average loss: {:.4f}'.format(
         epoch, avg_loss
     ))
@@ -126,7 +126,7 @@ def test(model, test_loader, epoch, args, device, img_size, res_dir):
                 save_image(comparison.cpu(), res_dir +
                            '/reconstruction_'+str(epoch)+'.png', nrow=n)
 
-    test_loss /= len(test_loader.dataset)
+    test_loss = test_loss / len(test_loader.dataset) * args.batch_size
     print('=====> Test set loss: {:.4f}'.format(test_loss))
 
 

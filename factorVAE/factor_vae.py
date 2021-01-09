@@ -83,7 +83,7 @@ class FactorVAE(VAE):
                 mu_o, logvar_o = decoded
                 recon_x_distribution = Normal(
                     loc=mu_o, scale=torch.exp(0.5*logvar_o))
-                MLD = recon_x_distribution.log_prob(x).sum(1).mean()
+                MLD = -recon_x_distribution.log_prob(x).sum(1).mean()
 
             Dz = self.discriminator(z)
             tc_loss = (Dz[:, :1] - Dz[:, 1:]).mean()

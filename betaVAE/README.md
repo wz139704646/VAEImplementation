@@ -16,8 +16,8 @@ output:
 
 ```
 usage: main.py [-h] [--batch-size N] [--epochs N] [--no-cuda] [--seed S]
-               [--log-interval N] [--n-hidden N] [--dim-z N] [--lr LR]
-               [--beta :math: `\beta`]
+               [--log-interval N] [--n-hidden N] [--dim-z N] [--lr LR]  
+               [--beta :math: `\beta`] [--save] [--tag T]
 
 Implementation of beta-VAE based on pytorch, using MNIST dataset
 
@@ -33,6 +33,10 @@ optional arguments:
   --lr LR               learning rate of optimizer (default 1e-3)
   --beta :math: `\beta`
                         beta coefficient of beta-VAE (default 3.)
+  --save                save the model (under the checkpoints path (defined in
+                        config))
+  --tag T               tag string for the save model file name (default None
+                        (no tag))
 ```
 
 example:

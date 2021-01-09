@@ -101,15 +101,15 @@ class VAE(BaseVAE):
         encoded = inputs[2]
 
         mu, logvar = encoded
-        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) # KL divergence term
+        KLD = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp()).sum(1).mean() # KL divergence term
         if self.binary:
-            # loss under Bernolli MLP decoder
-            MLD = F.binary_cross_entropy(decoded, x, reduction='sum') # likelyhood term
+            # likelihood term under Bernolli MLP decoder
+            MLD = F.binary_cross_entropy(decoded, x, reduction='sum').div(x.size(0))
         else:
-            # otherwise, return loss under Gaussian MLP decoder
+            # likelihood term under Gaussian MLP decoder
             mu_o, logvar_o = decoded
             recon_x_distribution = Normal(loc=mu_o, scale=torch.exp(0.5*logvar_o))
-            MLD = -torch.sum(recon_x_distribution.log_prob(x))
+            MLD = -recon_x_distribution.log_prob(x).sum(1).mean()
 
         return MLD + KLD
 

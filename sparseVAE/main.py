@@ -1,13 +1,13 @@
 import os
-import time
 import torch
 import argparse
 from torch import optim
 from torchvision.utils import save_image
 import matplotlib
 import matplotlib.pyplot as plt
+from tensorboardX import SummaryWriter
 
-from beta_vae import BetaVAE
+from sparse_vae import SparseVAE
 
 import sys
 sys.path.append("..")
@@ -19,11 +19,11 @@ global_conf = {}
 
 def parse_args():
     """parse command line arguments"""
-    desc = "Implementation of beta-VAE based on pytorch, using MNIST dataset"
+    desc = "Implementation of Sparse VAE based on pytorch, using MNIST dataset"
     parser = argparse.ArgumentParser(description=desc)
 
-    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
-                        help='batch size for training (default 128)')
+    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                        help='batch size for training (default 64)')
     parser.add_argument('--epochs', type=int, default=20, metavar='N',
                         help='number of epochs to train (default 20)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -32,21 +32,21 @@ def parse_args():
                         help='random seed (default 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='interval between logging training status (default 10)')
-    parser.add_argument('--n-hidden', type=int, default=400, metavar='N',
-                        help='number of hidden units in MLP (default 400)')
-    parser.add_argument('--dim-z', type=int, default=10, metavar='N',
-                        help='dimension of latent space (default 10)')
+    parser.add_argument('--hidden-sizes', nargs='+', type=int, default=[400], metavar='N',
+                        help='numbers of hidden units for each layer in MLP (default [400])')
+    parser.add_argument('--dim-z', type=int, default=100, metavar='N',
+                        help='dimension of latent space (default 100)')
+    parser.add_argument('--alpha', type=float, default=0.5, metavar=':math: `\\alpha`',
+                        help='prior sparsity (0-1) (default 0.5)')
+    parser.add_argument('--delta-c', type=float, default=0.001, metavar=':math: `\\delta c`',
+                        help='increasing rate of c (updated per epoch) (default 0.001)')
     parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                         help='learning rate of optimizer (default 1e-3)')
-    parser.add_argument('--beta', type=float, default=3., metavar=':math: `\\beta`',
-                        help='beta coefficient of beta-VAE (default 3.)')
-    parser.add_argument('--save', action='store_true', default=False,
-                        help='save the model (under the checkpoints path (defined in config))')
-    parser.add_argument('--tag', type=str, default=None, metavar='T',
-                        help='tag string for the save model file name (default None (no tag))')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
+    args.hidden_sizes = args.hidden_sizes if hasattr(args.hidden_sizes, '__len__') \
+        else [args.hidden_sizes]
 
     return args
 
@@ -60,11 +60,10 @@ def configuration(args):
     global_conf['image_size'] = (28, 28)
     global_conf['data_dir'] = os.path.join(os.path.dirname(__file__), '../data')
     global_conf['res_dir'] = os.path.join(os.path.dirname(__file__), './results')
-    global_conf['checkpoints_dir'] = os.path.join(os.path.dirname(__file__), './checkpoints')
 
 
 def prepare_data(args, dir_path, shuffle=True):
-    """prepare data for training/testing"""
+    """prepare data for training and testing"""
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     train_loader = prepare_data_mnist(
         args.batch_size, dir_path, train=True, shuffle=shuffle, **kwargs)
@@ -74,8 +73,8 @@ def prepare_data(args, dir_path, shuffle=True):
     return train_loader, test_loader
 
 
-def train(model, train_loader, epoch, optimizer, args, device, img_size):
-    """beta-VAE training process"""
+def train(model, train_loader, epoch, optimizer, args, device, img_size, writer):
+    """VAE training process"""
     model.train()
     train_loss = 0
 
@@ -83,8 +82,11 @@ def train(model, train_loader, epoch, optimizer, args, device, img_size):
         data = data.to(device)
         optimizer.zero_grad()
         decoded, encoded = model(data.view(-1, img_size[0]*img_size[1]))
-        loss = model.loss_function(
+        losses = model.loss_function(
             decoded, data.view(-1, img_size[0]*img_size[1]), encoded)
+        for l in losses.keys():
+            writer.add_scalar(l, losses[l])
+        loss = losses['loss']
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -105,15 +107,16 @@ def train(model, train_loader, epoch, optimizer, args, device, img_size):
 
 
 def test(model, test_loader, epoch, args, device, img_size, res_dir):
-    """beta-VAE testing process"""
+    """VAE testing process"""
     model.eval()
     test_loss = 0
     with torch.no_grad():
         for i, (data, _) in enumerate(test_loader):
             data = data.to(device)
             decoded, encoded = model(data.view(-1, img_size[0]*img_size[1]))
-            test_loss += model.loss_function(
-                decoded, data.view(-1, img_size[0]*img_size[1]), encoded).item()
+            losses = model.loss_function(
+                decoded, data.view(-1, img_size[0]*img_size[1]), encoded)
+            test_loss += losses['loss'].item()
 
             if i == 0:
                 recon_batch = model.reconstruct(
@@ -128,26 +131,6 @@ def test(model, test_loader, epoch, args, device, img_size, res_dir):
     print('=====> Test set loss: {:.4f}'.format(test_loss))
 
 
-def save_(model, args, config, save_dir, comment=None):
-    """save the model accompany with its args and configuration
-    :param model: the vae model object
-    :param args: the input arguments when training
-    :param config: the config of the training
-    :param save_dir: directory to put the saved files
-    """
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    
-    filename = "t{}".format(int(time.time()))
-    if comment is not None:
-        filename = "{}-{}".format(filename, comment)
-    filename = os.path.join(save_dir, filename + '.pth.tar')
-
-    torch.save({'train_args': args,
-                'train_config': config,
-                'state_dict': model.state_dict()}, filename)
-
-
 def main(args):
     """main procedure"""
     # get configuration
@@ -155,38 +138,39 @@ def main(args):
     img_size = global_conf["image_size"]
     data_dir = global_conf["data_dir"]
     res_dir = global_conf["res_dir"]
-    save_dir = global_conf["checkpoints_dir"]
 
     # prepare data
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
 
     # prepare model
-    model = BetaVAE(img_size[0]*img_size[1], args.n_hidden,
-                    args.dim_z, img_size[0]*img_size[1], args.beta)
+    model = SparseVAE(img_size[0]*img_size[1], args.hidden_sizes,
+                      args.dim_z, args.alpha)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    # summary writer
+    writer = SummaryWriter(comment='sparseVAE')
+    writer.add_graph(model, torch.zeros(1, img_size[0]*img_size[1]))
 
     # train and test
     losses = []
     for epoch in range(1, args.epochs+1):
-        avg_loss = train(model, train_loader, epoch,
-                         optimizer, args, device, img_size)
-        losses.append(avg_loss)
+        loss = train(model, train_loader, epoch,
+                     optimizer, args, device, img_size, writer)
+        losses.append(loss)
         test(model, test_loader, epoch, args, device, img_size, res_dir)
         with torch.no_grad():
             sample = model.sample(64, device).cpu()
             save_image(sample.view(
                 64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
+        
+        # update c
+        model.update_c(args.delta_c)
 
     # plot train losses
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.plot(losses)
     plt.savefig(res_dir+'/loss.png')
-
-    # save the model and related params
-    if args.save:
-        save_dir = os.path.join(save_dir, 'mnist')
-        save_(model, args, global_conf, save_dir, comment=args.tag)
 
 
 if __name__ == '__main__':

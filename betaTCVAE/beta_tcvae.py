@@ -64,13 +64,13 @@ class BetaTCVAE(BetaVAE):
         # compute likelyhood term
         if self.binary:
             # likelihood term under Bernolli MLP decoder
-            MLD = F.binary_cross_entropy(decoded, x, reduction='sum')
+            MLD = F.binary_cross_entropy(decoded, x, reduction='sum').div(x.size(0))
         else:
             # likelihood term under Gaussian MLP decoder
             mu_o, logvar_o = decoded
             recon_x_distribution = Normal(
                 loc=mu_o, scale=torch.exp(0.5*logvar_o))
-            MLD = -torch.sum(recon_x_distribution.log_prob(x))
+            MLD = -recon_x_distribution.log_prob(x).sum(1).mean()
 
         log_q_z_n = Normal(loc=mu, scale=torch.exp(
             0.5*logvar)).log_prob(z).sum(1)  # log q(z|n)
@@ -101,9 +101,9 @@ class BetaTCVAE(BetaVAE):
             raise NotImplementedError
 
         # decomposition
-        index_code_MI = (log_q_z_n - log_q_z).sum()
-        TC = (log_q_z - log_prod_q_z).sum()
-        dim_wise_KL = (log_prod_q_z - log_p_z).sum()
+        index_code_MI = (log_q_z_n - log_q_z).mean()
+        TC = (log_q_z - log_prod_q_z).mean()
+        dim_wise_KL = (log_prod_q_z - log_p_z).mean()
         # print("MI: {}, TC: {}, KL: {}".format(index_code_MI, TC, dim_wise_KL))
 
         return MLD + self.alpha * index_code_MI + self.beta * TC + self.gamma * dim_wise_KL
