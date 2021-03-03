@@ -1,5 +1,4 @@
 import os
-import time
 import torch
 import argparse
 from torch import optim
@@ -10,7 +9,9 @@ import matplotlib.pyplot as plt
 from beta_vae import BetaVAE
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
+from utils import save_
 from load_data import prepare_data_mnist
 
 
@@ -128,26 +129,6 @@ def test(model, test_loader, epoch, args, device, img_size, res_dir):
     print('=====> Test set loss: {:.4f}'.format(test_loss))
 
 
-def save_(model, args, config, save_dir, comment=None):
-    """save the model accompany with its args and configuration
-    :param model: the vae model object
-    :param args: the input arguments when training
-    :param config: the config of the training
-    :param save_dir: directory to put the saved files
-    """
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    
-    filename = "t{}".format(int(time.time()))
-    if comment is not None:
-        filename = "{}-{}".format(filename, comment)
-    filename = os.path.join(save_dir, filename + '.pth.tar')
-
-    torch.save({'train_args': args,
-                'train_config': config,
-                'state_dict': model.state_dict()}, filename)
-
-
 def main(args):
     """main procedure"""
     # get configuration
@@ -186,7 +167,7 @@ def main(args):
     # save the model and related params
     if args.save:
         save_dir = os.path.join(save_dir, 'mnist')
-        save_(model, args, global_conf, save_dir, comment=args.tag)
+        save_(model, save_dir, args, global_conf, comment=args.tag)
 
 
 if __name__ == '__main__':

@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 from factor_vae import FactorVAE
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
+from utils import save_
 from load_data import prepare_data_mnist
 
 
@@ -40,6 +42,10 @@ def parse_args():
                         help='learning rate of optimizer (default 1e-3)')
     parser.add_argument('--gamma', type=float, default=30., metavar=':math: `\\gamma`',
                         help='weight on tc loss term of FactorVAE (default 30.)')
+    parser.add_argument('--save', action='store_true', default=False,
+                        help='save the model (under the checkpoints path (defined in config))')
+    parser.add_argument('--tag', type=str, default=None, metavar='T',
+                        help='tag string for the save model file name (default None (no tag))')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -51,11 +57,13 @@ def configuration(args):
     """set global configuration for initialization"""
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
+    torch.autograd.set_detect_anomaly(True)
 
     global_conf['device'] = torch.device("cuda" if args.cuda else "cpu")
     global_conf['image_size'] = (28, 28)
     global_conf['data_dir'] = os.path.join(os.path.dirname(__file__), '../data')
     global_conf['res_dir'] = os.path.join(os.path.dirname(__file__), './results')
+    global_conf['checkpoints_dir'] = os.path.join(os.path.dirname(__file__), './checkpoints')
 
 
 def prepare_data(args, dir_path, shuffle=True):
@@ -88,18 +96,18 @@ def train(model, train_loaders, epoch, optimizers, args, device, img_size):
         data2 = data2.to(device)
 
         # train vae
-        optimizer_vae.zero_grad()
         decoded, encoded, z = model(data1.view(-1, img_size[0]*img_size[1]))
         vae_loss = model.loss_function(
             decoded, data1.view(-1, img_size[0]*img_size[1]), encoded, z, optim_index=0)
+        optimizer_vae.zero_grad()
         vae_loss.backward(retain_graph=True)
         train_loss_vae += vae_loss.item()
         optimizer_vae.step()
 
         # train discriminator
-        optimizer_discriminator.zero_grad()
         z_prime = model(data2.view(-1, img_size[0]*img_size[1]), no_dec=True)
         discriminator_loss = model.loss_function(z, z_prime, optim_index=1)
+        optimizer_discriminator.zero_grad()
         discriminator_loss.backward()
         train_loss_discriminator += discriminator_loss.item()
         optimizer_discriminator.step()
@@ -187,8 +195,6 @@ def plot_epoch_loss(losses, save_path=None, layout='v'):
     else:
         raise NotImplementedError
 
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
     fig = plt.figure(figsize=(12, 12))
     for i in range(num):
         idx = i + 1
@@ -201,6 +207,8 @@ def plot_epoch_loss(losses, save_path=None, layout='v'):
 
         ax = fig.add_subplot(nrow, ncol, idx)
         ax.set_title(cates[i])
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
         ax.plot(losses[cates[i]])
     
     if save_path is not None:
@@ -214,6 +222,7 @@ def main(args):
     img_size = global_conf["image_size"]
     data_dir = global_conf["data_dir"]
     res_dir = global_conf["res_dir"]
+    save_dir = global_conf["checkpoints_dir"]
 
     # prepare data
     train_loaders, test_loaders = prepare_data(args, dir_path=data_dir)
@@ -241,6 +250,11 @@ def main(args):
 
     # plot train losses
     plot_epoch_loss({"vae": losses_vae, "discriminator": losses_discriminator}, res_dir+'/loss.png')
+
+    # save the model and related params
+    if args.save:
+        save_dir = os.path.join(save_dir, 'mnist')
+        save_(model, save_dir, args, global_conf, comment=args.tag)
 
 
 if __name__ == '__main__':

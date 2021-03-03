@@ -27,7 +27,7 @@ class FactorVAE(VAE):
         D_hidden_dim = 1000
         D_hidden_dims = [D_hidden_dim] * D_hidden_num
         D_act = nn.LeakyReLU
-        D_act_args = {"negative_slope": 0.2}
+        D_act_args = {"negative_slope": 0.2, "inplace": False}
         D_output_dim = 2
         self.discriminator = utils.create_mlp(self.dim_z, D_hidden_dims,
                                             act_layer=D_act, act_args=D_act_args, norm=True)
@@ -91,7 +91,7 @@ class FactorVAE(VAE):
             return KLD + MLD + self.gamma * tc_loss
         elif optim_index == 1:
             # update discriminator
-            z = inputs[0]
+            z = inputs[0].detach()
             z_prime = inputs[1]
             device = z.device
 

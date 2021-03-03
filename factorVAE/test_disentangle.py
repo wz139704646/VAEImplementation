@@ -2,8 +2,7 @@ import os
 import torch
 from torchvision.utils import save_image
 
-from beta_vae import BetaVAE
-from _test import set_basic_config
+from factor_vae import FactorVAE
 
 import sys
 sys.path.append(".")
@@ -13,8 +12,10 @@ from utils import latent_traversal_detailed
 
 def set_test_config():
     """set test configuration"""
-    conf = set_basic_config()
-
+    conf = {}
+    conf['checkpoint_path'] = os.path.join(
+        os.path.dirname(__file__),
+        'checkpoints/mnist/t1610177574-epoch150_z15_beta4.pth.tar')
     conf['save_dir'] = os.path.join(
         os.path.dirname(__file__),
         'results/latent_traversal')
@@ -38,8 +39,8 @@ if __name__ == '__main__':
     model_state_dict = model_checkpoint['state_dict']
 
     img_size = train_conf['image_size']
-    model = BetaVAE(img_size[0]*img_size[1], train_args.n_hidden,
-                    train_args.dim_z, img_size[0]*img_size[1], train_args.beta)
+    model = FactorVAE(img_size[0]*img_size[1], train_args.n_hidden, train_args.dim_z,
+                    img_size[0]*img_size[1], train_args.gamma)
     model.load_state_dict(model_state_dict)
 
     # traversal

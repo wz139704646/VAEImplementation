@@ -1,3 +1,5 @@
+import os
+import time
 import torch
 import argparse
 from torch import optim
@@ -8,7 +10,9 @@ import matplotlib.pyplot as plt
 from beta_tcvae import BetaTCVAE
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
+from utils import save_
 from load_data import prepare_data_mnist
 
 
@@ -44,6 +48,10 @@ def parse_args():
                         help='gamma coefficient (on dimension wise KL term) of beta-TCVAE (default 1.)')
     parser.add_argument('--sampling', type=str, default='mws', metavar='S', choices=['mws', 'mss'],
                         help='sampling method applied in beta-TCVAE for computing q(z) (default "mws")')
+    parser.add_argument('--save', action='store_true', default=False,
+                        help='save the model (under the checkpoints path (defined in config))')
+    parser.add_argument('--tag', type=str, default=None, metavar='T',
+                        help='tag string for the save model file name (default None (no tag))')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -58,8 +66,9 @@ def configuration(args):
 
     global_conf['device'] = torch.device("cuda" if args.cuda else "cpu")
     global_conf['image_size'] = (28, 28)
-    global_conf['data_dir'] = '../data'
-    global_conf['res_dir'] = './results'
+    global_conf['data_dir'] = os.path.join(os.path.dirname(__file__), '../data')
+    global_conf['res_dir'] = os.path.join(os.path.dirname(__file__), './results')
+    global_conf['checkpoints_dir'] = os.path.join(os.path.dirname(__file__), './checkpoints')
 
 
 def prepare_data(args, dir_path, shuffle=True):
@@ -137,6 +146,7 @@ def main(args):
     img_size = global_conf["image_size"]
     data_dir = global_conf["data_dir"]
     res_dir = global_conf["res_dir"]
+    save_dir = global_conf["checkpoints_dir"]
 
     # prepare data
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
@@ -163,6 +173,11 @@ def main(args):
     plt.ylabel('Loss')
     plt.plot(losses)
     plt.savefig(res_dir+'/loss.png')
+
+    # save the model and related params
+    if args.save:
+        save_dir = os.path.join(save_dir, 'mnist')
+        save_(model, save_dir, args, global_conf, comment=args.tag)
 
 
 if __name__ == '__main__':

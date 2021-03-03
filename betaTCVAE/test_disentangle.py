@@ -2,7 +2,7 @@ import os
 import torch
 from torchvision.utils import save_image
 
-from beta_vae import BetaVAE
+from beta_tcvae import BetaTCVAE
 from _test import set_basic_config
 
 import sys
@@ -38,8 +38,9 @@ if __name__ == '__main__':
     model_state_dict = model_checkpoint['state_dict']
 
     img_size = train_conf['image_size']
-    model = BetaVAE(img_size[0]*img_size[1], train_args.n_hidden,
-                    train_args.dim_z, img_size[0]*img_size[1], train_args.beta)
+    model = BetaTCVAE(img_size[0]*img_size[1], train_args.n_hidden,
+                    train_args.dim_z, img_size[0]*img_size[1],
+                    train_args.alpha, train_args.beta, train_args.gamma)
     model.load_state_dict(model_state_dict)
 
     # traversal

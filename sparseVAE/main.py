@@ -3,14 +3,16 @@ import torch
 import argparse
 from torch import optim
 from torchvision.utils import save_image
+from torch.utils.tensorboard import SummaryWriter
 import matplotlib
 import matplotlib.pyplot as plt
-from tensorboardX import SummaryWriter
 
 from sparse_vae import SparseVAE
 
 import sys
+sys.path.append(".")
 sys.path.append("..")
+from utils import save_
 from load_data import prepare_data_mnist
 
 
@@ -38,10 +40,14 @@ def parse_args():
                         help='dimension of latent space (default 100)')
     parser.add_argument('--alpha', type=float, default=0.5, metavar=':math: `\\alpha`',
                         help='prior sparsity (0-1) (default 0.5)')
-    parser.add_argument('--delta-c', type=float, default=0.001, metavar=':math: `\\delta c`',
-                        help='increasing rate of c (updated per epoch) (default 0.001)')
+    parser.add_argument('--delta-c', type=float, default=1e-3, metavar=':math: `\\delta c`',
+                        help='increasing rate of c (updated per epoch) (default 1e-3)')
     parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                         help='learning rate of optimizer (default 1e-3)')
+    parser.add_argument('--save', action='store_true', default=False,
+                        help='save the model (under the checkpoints path (defined in config))')
+    parser.add_argument('--tag', type=str, default=None, metavar='T',
+                        help='tag string for the save model file name (default None (no tag))')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -60,6 +66,7 @@ def configuration(args):
     global_conf['image_size'] = (28, 28)
     global_conf['data_dir'] = os.path.join(os.path.dirname(__file__), '../data')
     global_conf['res_dir'] = os.path.join(os.path.dirname(__file__), './results')
+    global_conf['checkpoints_dir'] = os.path.join(os.path.dirname(__file__), './checkpoints')
 
 
 def prepare_data(args, dir_path, shuffle=True):
@@ -138,6 +145,7 @@ def main(args):
     img_size = global_conf["image_size"]
     data_dir = global_conf["data_dir"]
     res_dir = global_conf["res_dir"]
+    save_dir = global_conf["checkpoints_dir"]
 
     # prepare data
     train_loader, test_loader = prepare_data(args, dir_path=data_dir)
@@ -162,7 +170,7 @@ def main(args):
             sample = model.sample(64, device).cpu()
             save_image(sample.view(
                 64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
-        
+
         # update c
         model.update_c(args.delta_c)
 
@@ -171,6 +179,11 @@ def main(args):
     plt.ylabel('Loss')
     plt.plot(losses)
     plt.savefig(res_dir+'/loss.png')
+
+    # save the model and related params
+    if args.save:
+        save_dir = os.path.join(save_dir, 'mnist')
+        save_(model, save_dir, args, global_conf, extra={"model_c": model.c}, comment=args.tag)
 
 
 if __name__ == '__main__':

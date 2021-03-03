@@ -41,7 +41,7 @@ class SparseVAE(BaseVAE):
         self.fc2_mean = nn.Linear(hidden_sizes[-1], dim_z)
         self.fc2_logvar = nn.Linear(hidden_sizes[-1], dim_z)
         self.fc2_logspike = nn.Linear(hidden_sizes[-1], dim_z)
-        
+
         # decoder layers
         self.fc3n = utils.create_mlp(
             dim_z, hidden_sizes[-1::-1], act_layer=nn.ReLU, act_args={}, norm=False)
