@@ -77,7 +77,7 @@ class SparseVAE(BaseVAE):
 
         if self.binary:
             return torch.sigmoid(self.fc4(h3))
-        
+
         return self.fc4(h3), self.fc4_logvar(h3)
 
     def forward(self, x):
@@ -123,15 +123,15 @@ class SparseVAE(BaseVAE):
             mu_dec, logvar_dec = decoded
             recon_x_distribution = Normal(loc=mu_dec, scale=torch.exp(0.5*logvar_dec))
             MLD = -recon_x_distribution.log_prob(x).sum(1).mean()
-        
+
         spike = torch.clamp(logspike.exp(), 1e-6, 1.0 - 1e-6)
         PRIOR = -0.5 * torch.sum(spike * (1 + logvar - mu.pow(2) - logvar.exp())) + \
                        torch.sum((1-spike) * (torch.log((1-spike) / (1-self.alpha))) + \
                                  spike * torch.log(spike/self.alpha))
         PRIOR = PRIOR.div(x.size(0))
-        
+
         return {"loss": MLD + PRIOR, "MLD": MLD, "PRIOR": PRIOR}
 
-    def update_c(self, delta):
+    def update_epoch(self, delta):
         """warm-up strategy gradually increasing c during training"""
         self.c += delta

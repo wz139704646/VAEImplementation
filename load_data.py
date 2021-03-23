@@ -13,7 +13,7 @@ class CustomTensorDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data_tensor[index]
-    
+
     def __len__(self):
         return self.data_tensor.size(0)
 
@@ -34,13 +34,19 @@ def prepare_data_dsprites(batch_size, data_dir, shuffle=True, **kwargs):
     return DataLoader(dset, batch_size=batch_size, shuffle=shuffle, **kwargs)
 
 
-def prepare_data_mnist(batch_size, data_dir, train=True, shuffle=True, **kwargs):
+def prepare_data_mnist(batch_size, data_dir, train=True, shuffle=True, resize=None, **kwargs):
     """load MNIST data via torchvision
     :param data_dir: the root directory path
     :param train: whether the data is used for training (false means testing)
+    :param resize: the size of resized images (original size when None)
     :param kwargs: other arguments for the return dataloader
     """
+    # set transforms
+    all_transforms = []
+    if resize:
+        all_transforms.append(transforms.Resize(resize))
+    all_transforms.append(transforms.ToTensor())
 
     return DataLoader(datasets.MNIST(data_dir, train=train, download=True,
-                                    transform=transforms.ToTensor()),
+                                    transform=transforms.Compose(all_transforms)),
                     batch_size=batch_size, shuffle=shuffle, **kwargs)

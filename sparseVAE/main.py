@@ -172,7 +172,7 @@ def main(args):
                 64, 1, img_size[0], img_size[1]), res_dir+'/sample_'+str(epoch)+'.png')
 
         # update c
-        model.update_c(args.delta_c)
+        model.update_epoch(args.delta_c)
 
     # plot train losses
     plt.xlabel('Epoch')

@@ -24,7 +24,7 @@ def set_test_config():
     conf['save_dir'] = os.path.join(
         os.path.dirname(__file__),
         'results/encoding')
-    
+
     if not os.path.exists(conf['save_dir']):
         os.makedirs(conf['save_dir'])
 
@@ -38,12 +38,12 @@ def plot_image(img, ax):
 def plot_encoding(image, img_size, model, filename, negative=True, width=1/7):
     """plot a single image and its encoding"""
     flatten_img = torch.flatten(image).unsqueeze(0)
-    
+
     encoded = model.encode(flatten_img)
     z = model.reparameterize(*encoded) # codes
-    
+
     _, (ax0, ax1, ax2) = plt.subplots(nrows=1, ncols=3, figsize=(21, 7))
-    
+
     # plot input image
     img = torchvision.utils.make_grid(image).detach().numpy()
     if negative:
@@ -67,7 +67,7 @@ def plot_encoding(image, img_size, model, filename, negative=True, width=1/7):
         img = 1 - img
     plot_image(img, ax2)
     ax2.set_title('reconstruction', fontsize=20)
-    
+
     plt.subplots_adjust(hspace=0.5)
 
     plt.savefig(filename)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     test_conf = set_test_config()
     checkpoint_path = test_conf['checkpoint_path']
     save_dir = test_conf['save_dir']
-    
+
     model_checkpoint = torch.load(checkpoint_path)
     train_args = model_checkpoint['train_args']
     train_conf = model_checkpoint['train_config']
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # plot encoding
     plot_encoding(images[0], img_size, model, "test1.png")
-    
+
     plot_encoding(images[1], img_size, model, "test2.png")
 
     plot_encoding(images[2], img_size, model, "test3.png")

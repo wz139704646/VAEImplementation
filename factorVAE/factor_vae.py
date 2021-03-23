@@ -44,7 +44,7 @@ class FactorVAE(VAE):
         if no_dec:
             # no decoding
             return z.squeeze()
-        
+
         return self.decode(z), encoded, z
 
     def permute_dims(self, z):
@@ -87,7 +87,7 @@ class FactorVAE(VAE):
 
             Dz = self.discriminator(z)
             tc_loss = (Dz[:, :1] - Dz[:, 1:]).mean()
-            
+
             return KLD + MLD + self.gamma * tc_loss
         elif optim_index == 1:
             # update discriminator
@@ -99,7 +99,7 @@ class FactorVAE(VAE):
                 z.size(0), dtype=torch.long, requires_grad=False).to(device)
             zeros = torch.zeros(
                 z.size(0), dtype=torch.long, requires_grad=False).to(device)
-            
+
             Dz = self.discriminator(z)
             z_pperm = self.permute_dims(z_prime).detach() # avoid updating VAE again
             Dz_pperm = self.discriminator(z_pperm)
